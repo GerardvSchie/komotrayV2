@@ -1,8 +1,16 @@
-# komo*Tray*
+# komo*Tray* V2
 
-A system tray status indicator for the [komorebi](https://github.com/LGUG2Z/komorebi/) tiling window manager. It shows the focused workspace and monitor and can be used to interact with komorebi.
+komoTray provides a system tray status indicator for the [komorebi](https://github.com/LGUG2Z/komorebi/) tiling window manager. It shows the focused workspace and monitor and can be used to interact with komorebi.
 
 <img src="assets/previews/tray.png" height="48" />
+
+## Differences vs V1
+
+This repository is a fork of the original [komo\*Tray\*](https://github.com/urob/komotray),
+The difference being a version for AutoHotkey V2, and containing my own configuration.
+
+The `komorebic.lib.ahk` script is from the komorebi repository itself and we use it in the config, so if you want to extend it look there for most of the available functions
+Ofcourse a lot of thanks to the first creator for komo*Tray*! It saves me the overhead of remembering in which workspace I'm currently at, and having a simple entrypoint to start/stop.
 
 ## Status indicator
 
@@ -33,5 +41,4 @@ To start the tray, simply run the AHK script or the bundled executable. The scri
 
 A single click on the tray icon will toggle komorebi to pause. A right click opens a menu with additional options to start/restart komorebi or to exit the application. Additional menu options can be configured using the AHK script.
 
-Optionally, komo*Tray* can also be used to configure additional key bindings. See [my personal configuration](komorebi-config) for an example. 
-
+Optionally, komo*Tray* can also be used to configure additional key bindings. See [my personal configuration](config) for an example.

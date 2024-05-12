@@ -1,6 +1,6 @@
 ;
-; cJson.ahk 0.4.1
-; Copyright (c) 2021 Philip Taylor (known also as GeekDude, G33kDude)
+; cJson.ahk 2.0.0
+; Copyright (c) 2023 Philip Taylor (known also as GeekDude, G33kDude)
 ; https://github.com/G33kDude/cJson.ahk
 ;
 ; MIT License
@@ -23,285 +23,333 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 ;
+#Requires AutoHotkey v2.0
 
 class JSON
 {
-	static version := "0.4.1-git-built"
+	static version := "2.0.0"
 
-	BoolsAsInts[]
-	{
-		get
-		{
-			this._init()
-			return NumGet(this.lib.bBoolsAsInts, "Int")
-		}
-
-		set
-		{
-			this._init()
-			NumPut(value, this.lib.bBoolsAsInts, "Int")
-			return value
-		}
+	static BoolsAsInts {
+		get => this.lib.bBoolsAsInts
+		set => this.lib.bBoolsAsInts := value
 	}
 
-	EscapeUnicode[]
-	{
-		get
-		{
-			this._init()
-			return NumGet(this.lib.bEscapeUnicode, "Int")
-		}
-
-		set
-		{
-			this._init()
-			NumPut(value, this.lib.bEscapeUnicode, "Int")
-			return value
-		}
+	static NullsAsStrings {
+		get => this.lib.bNullsAsStrings
+		set => this.lib.bNullsAsStrings := value
 	}
 
-	_init()
-	{
-		if (this.lib)
-			return
+	static EscapeUnicode {
+		get => this.lib.bEscapeUnicode
+		set => this.lib.bEscapeUnicode := value
+	}
+
+	static fnCastString := Format.Bind('{}')
+
+	static __New() {
 		this.lib := this._LoadLib()
 
 		; Populate globals
-		NumPut(&this.True, this.lib.objTrue, "UPtr")
-		NumPut(&this.False, this.lib.objFalse, "UPtr")
-		NumPut(&this.Null, this.lib.objNull, "UPtr")
+		this.lib.objTrue := ObjPtr(this.True)
+		this.lib.objFalse := ObjPtr(this.False)
+		this.lib.objNull := ObjPtr(this.Null)
 
-		this.fnGetObj := Func("Object")
-		NumPut(&this.fnGetObj, this.lib.fnGetObj, "UPtr")
+		this.lib.fnGetMap := ObjPtr(Map)
+		this.lib.fnGetArray := ObjPtr(Array)
 
-		this.fnCastString := Func("Format").Bind("{}")
-		NumPut(&this.fnCastString, this.lib.fnCastString, "UPtr")
+		this.lib.fnCastString := ObjPtr(this.fnCastString)
 	}
 
-	_LoadLib32Bit() {
-		static CodeBase64 := ""
-		. "FLYQAQAAAAEwVYnlEFOB7LQAkItFFACIhXT///+LRUAIixCh4BYASAAgOcIPhKQAcMdFAvQAFADrOIN9DAAAdCGLRfQF6AEAQA+2GItFDIsAAI1I"
-		. "AotVDIkACmYPvtNmiRAg6w2LRRAAKlABwQAOiRCDRfQAEAViIACEwHW5AMaZiSBFoIlVpAEhRCQmCABGAAYEjQATBCSg6CYcAAACaRQLXlDHACIA"
-		. "DFy4AZfpgK0HAADGRfMAxAgIi1AAkwiLQBAQOcJ1RwATAcdFCuwCuykCHAyLRewAweAEAdCJRbACiwABQAiLVeyDAMIBOdAPlMCIAEXzg0XsAYB9"
-		. "EPMAdAuEIkXsfIrGgkUkAgsHu1sBJpgFu3uCmYlOiRiMTQSAvYGnAHRQx0Wi6Auf6AX5KJ/oAAQjhRgCn8dF5AJ7qQULgUGDauSEaqyDfeSwAA+O"
-		. "qYAPE6EsDaGhhSlSx0XgiyngqilO4AACRQyCKesnUyAgIVUgZcdF3EIgVMdERdiLItgF/Kgi2EcAAkUMgiKDRdyABBiAO0XcfaQPtoB5gPABhMAP"
-		. "hJ/AwIHCeRg5ReR9fOScGItFrMCNALCYiVVKnA2wmAGwZRlEXxfNDxPpgTjKE+nKQgSAIaIcgCEPjZ9C3NQLQOjUBf4oQNQAAkUMRNyhxCyQiVWU"
-		. "zSyQYRaUsRiYbivqC+scwwlgi1UQiVTgCOAEVKQkBIEIYBqVCDqtKAN/Q4ctDIP4AXUek0EBLg76FwBhnAIBKKEDBQYPhV7COqzAmIbkICAAgVXH"
-		. "RdDLKbjQBQcAB98pwynQAAETJQbCKekqJA4QodzFRgzMSwzMBQxfDEYM7swAASUGQwzHphiBsUMMYshLDMgFEl8MRgzIFwABJQZDDGRCDBiNSBAB"
-		. "D7aVg7+siwAoiUwkoSwMjy3N+TD//+kv5BKBLQV1liBCBk8FVsBJ6QRIBYgCdWlAAY1VgCUEVNQUwVzEIho3IhogAItViItFxAHAiI0cAioaD7cT"
-		. "ERoExAEFBgHQD7cAgGaFwHW36ZCiZ2LACyXABRcfJeYKwM8AASUGpmcuHIAVv9RGCgbkAAHjyeQPjEj6RP//ZJ4PhLXiFbzt6xW8P6+IC7wAASUG"
-		. "BMRv4uLhqGH7CAu0/6iIBbQXgAAVA3RUuCABuDtFqBh8pFpxXVNxfV9xA11xkgmLXfzJw5DOkLEaAgBwiFdWkIizUYoMMBQUcQDHQAjRAdjHQAxS"
-		. "DIAECIEEwCEOCJFBwABhH4P4IHQi5dgACnTX2AANdCLJ2AAJdLvYAHsPjIVygjxoBcdFoDIHVkWBj2AAqGMArGEAoYaM8AjQLkAYixWhAJDHRCQg"
-		. "4gFEJCCLIAAAjU2QwDMYjdRNoGAAFFABEEGWcAAf8gtwAOMMQFdxAIkUJED/0IPsJItAY0U+sN8N3w3fDd8N1wB9D6yEVARuEgGFEG9DCQFAg/gi"
-		. "dAq4YCj/xOm/EAqNRYDxYOEHAeAtaf7//4XAdPoX8wGf8AH/Cf8J/wn/CXXVADrFB0LPBZJplAjfVv2SCMQCFcICiIM4CP1jArCyZ4ABTxRPCk8K"
-		. "TwqR1wAsdRIqBelUcBFmkFkWhQl8C18MgCwJQQIxVbCJUAjDqlTDdQLzA1sPhfBFGTYovIVwwUGxIjK5kwB4lgDOfJQA/yj8KI1gkAIiKZ6NEQVf"
-		. "KV8pVimFaBED/EW00KbxAq8VrxWvFa8VYdcAXQ+EtpSP9imlkwNA2B/h+9kfFwr1AdXgi+RjArRhArpQFS8Kby8KLwovCtkfFioFgVzplgGACBkg"
-		. "XcUJegkfIDUXILQWIFJ1AkQ4D4VMYwPvNYB4ReCSA+DDkAOjBAgA6e8FSxRvDbQH/pEgNwVcD4WqF51NKQdxe+CAAYlV4LsCazsuizkGwATbAlzc"
-		. "Aqpd2wIv2wIv3AIv2wKqYtsCCNwCAdsCZtsCqgzcAtPbTW7bAgrcAqql2wJy2wIN3AJ32wIudNsCMR7ZAknbAnUPfIURTT7gA4ADsWVCz+nPwdcw"
-		. "AQADoNyJwuEBOhuIL34w2AA5fyLDAoORAlMBAdCD6DCFAwTpgKk1g/hAfi0B2ADAtwBGfx+LReAPtwAAicKLRQiLAEEAkAHQg+g3AXDgIGaJEOtF"
-		. "BVhmg1D4YH4tCDRmE+hXEQZ0Crj/AADpbQZEAAACQI1QAgAOiQAQg0XcAYN93BADD44WAD6DReAoAusmAypCBCoQjQpKAioIAEmNSAKJGk0AZhIA"
-		. "Ugh9Ig+FAP/8//+LRQyLEkgBJinIAXcMi0AQCIPoBAEp4GbHCgAMeLgAEADp3QUjBBYDSC10JIgGLw8IjrEDig85D4+foYAIx0XYAYInDIArIhSB"
-		. "A8dACIEnx0DmDAEDiSh1FIAWAWiKPjGIEDB1IxMghRXpjhELKTB+dQlJf2frCkcBdlCBd2vaCmtAyAAB2bsKgBn3AOMB0YnKi00IAIsJjXECi10I"
-		. "AIkzD7cxD7/OAInLwfsfAcgRANqDwNCD0v+LAE0MiUEIiVEMSck+fhoJGX6dRXCrEAQAAJCIBi4PhYalTSyGI2YPbsDAAADKZg9iwWYP1mSFUEAQ"
-		. "361BAYAI3VZYwGpBUAUAVNQBVOsAQotV1InQweAAAgHQAcCJRdQBQxVIAotVCIkKAcAbmIPoMImFTIXAD9tDAUXU3vmBErBACN7BhRTIMA7KMCKi"
-		. "SANldBJIA0UPHIVVACANMQMHFHUxVQk00MAA2gA00wA0lVEVNMZF00uBE0AEAY3KF+tAzAYIK3URhgxX0IhNMsRiH8KizEGM61Ani1XMh07DUU4B"
-		. "ENiJRcxYFb3HRSLIwTDHRcRCChOLhFXIqDHIg0XEQBgAxDtFzHzlgH0Q0wB0E0Mv20XIoaMwWAjrEUcCyUYiFeUoKyR0WCBN2JmJAN8Pr/iJ1g+v"
-		. "APEB/vfhjQwWk2FVJFHrHcYGBXVmCibYcApELgMAA3oMAqFqZXQPhasiGsAiGgA3i0XABQcXAAAAD7YAZg++0FEmBTnCdGQqy+1AgwxFwKAexgaE"
-		. "wHW6lA+2wIYAQAF0G6UPJ0N4oidDeOssQwMJABCLFeQWgoWJUAhCoUIBAItABKMCiYAUJP/Qg+wEgxcuT2UPhKqFF7yFF7wF6gyaFw6PF7yAF8YG"
-		. "mhf76I+JF9yHF0IBgxdBAYsXgpKrlG51f8dFIgOA6zSLRbgFEhMX0gcCF+tYrBa4oBZmBvWgFr3nEeDnEUIB4xFBAQnqEesFIguNZfRbMF5fXcNB"
-		. "AgUAIlUAbmtub3duX08AYmplY3RfAA0KCiALIqUBdHJ1ZQAAZmFsc2UAbgh1bGzHBVZhbHUAZV8AMDEyMzQANTY3ODlBQkMAREVGAFWJ5VNAg+xU"
-		. "x0X0ZreLAEAUjVX0iVQkIBTHRCQQIitEJKIMwUONVQzAAgjAAQ8AqaAF4HPDFhjHReSpAgVF6MMA7MMA8IMKcBCJReRgAuPOIgwYqItV9MAIIKQL"
-		. "HOQAghjhAI1N5IlMgw/fwQyBD8QDwjwgEAQnD2De0hCDNgl1MCEQcE7xBUAIi1UQi1JFAgTE62hmAgN1XGECElESu0AWf7lBBTnDGSjRfBWGAT0g"
-		. "AYCJQNCD2P99LvAajTRV4HEPiXAPMR4EJATooQAChcB0EYsETeBGA4kBiVEEAJCLXfzJw5CQAXAVg+xYZsdF7ikTH0XwIBYUARBNDAC6zczMzInI"
-		. "9xDiweoDNkopwYkCyhAHwDCDbfQBgSGA9GaJVEXGsAMJ4gL34pAC6AOJRQAMg30MAHW5jUJVoAH0AcABkAIQDYAJCGIRwwko/v//hpBACLMdYMdF"
-		. "+EIuBhrkRcAKRfjB4AQgAdCJRdgBAUAYwDlF+A+NRPAZAAsKzlEC2PEMRfTGRQDzAIN99AB5B2GQAAH3XfRQHEMM9KC6Z2ZmZkAM6nAJhPgCUnkp"
-		. "2InC/wyog23s8gzs8QymngNAwfkficopoAj0AYEGdaWAffMAdAYOQQMhA8dERaYtHXAnpsAAwA5gAtDGRYbrkCXiJotF5I0hjCDQAdAPtzBn5I3S"
-		. "DMEWAcgDOnWQOQgCQABmhcB1GSUBDGUmAQYQBQHrEKG8AnQDUIS8AnQHg0XkAQDrh5CAfesAD2aEoWbhH1XYMJnRLemSyiQuQBwhFYyj4gChwxTU"
-		. "xkXjgAvcgwvq3IIF1IQL3I8LCAKFC/sjAYoL44ILvAKBC7wCgQtC3IML4wB0D0oL65AYg0X48n1AEFIL8Nf9//9ySLosvz1iABNyQ2Aj6AWBD90A"
-		. "3RpdkC7YswGyDsdF4ONjACIbjUXoUCcwAZEH7KGIED3jQBWhAB1BIXXATCQYjU3YBUFCav8MQeVIFUEhCz8LPwvAATES0QAxBIsAADqJIEmfC3+f"
-		. "C58LnwufC58Lnws2O2Q9wAnmkgrSNjQKV0l8GIM1AStMfW6NRahoSib2kEBUD+s3gUN0IACLVbCLRfABwFSNHPBqDHSWDHGWE12xzg2hIcBs8CAQ"
-		. "wWzw1gEFA2YntzNzPvR60xMA7IN97AB5bYtMTeyPQY9BuDAQBCk60KpOvr4DpkHCBXWjB+ECwQJAQb4tAOtbX88GzwZfVa8GrwalhCPrQj5CEyeN"
-		. "Vb7WVuhnvxO/E7IT6AF8AyYUqWvpNbMqGJIGF3oFUIMimADpyXLcmAXpt5PdKQTkdVaiAxStA1wAVx0JHwYTBmMeBlEZBlxPHwYfBh8GaALpAR4G"
-		. "73vTaBMGCB8GHwYfBmYCYgAAgrEA6Z8CAACLRRAgiwCNUAEAcIkQBOmNAogID7cAZgCD+Ax1VoN9DEAAdBSLRQwAjEgAAotVDIkKZsdgAFwA6w0K"
-		. "3AJMF6ENTGYA6T0OwisJwoIKPGFuAOnbAQ1hFskCEQRhDTxhcgDpKnmOMGeJMAm8MHQAFOkXjjAFgAgPtgUABAAAAITAdCkRBjYfdgyGBX52B0K4"
-		. "ABMA6wW4gAIAoIPgAeszCBQYCBTCE4QFPaAAdw0awBc2bykwjgl1jQkDGw+3AMCLVRCJVCQIAQEKVCQEiQQk6DptgR4rwhHAJ8gRi1UhwAwSZokQ"
-		. "jRxFCAICBC+FwA+FOvwU//9TISJNIZDJwwCQkJBVieVTgwTsJIAQZolF2McARfAnFwAAx0UC+AE/6y0Pt0XYAIPgD4nCi0XwAAHQD7YAZg++ANCL"
-		. "RfhmiVRFQugBB2bB6AQBDoMARfgBg334A36gzcdF9APBDjOCIQAci0X0D7dcRZLoiiOJ2hAybfRAEBD0AHnHAl6LXfwBwic="
-		static Code := false
-		if ((A_PtrSize * 8) != 32) {
-			Throw Exception("_LoadLib32Bit does not support " (A_PtrSize * 8) " bit AHK, please run using 32 bit AHK")
-		}
+	
+	static _LoadLib32Bit() {
+		static lib, code := Buffer(6624), codeB64 := ""
+		. "ubgAVYnlV1aNlbAA/v//U4HsnAEAAACLRRSLdQhIx4W0AJD2FAB4XVAMiYWcADCKAhSIBIWjABSLBolUJBgUjZUBkAASCMdE2CQQAAAAAA4MAIYB"
+		. "DgAE3BMAAIk0JBD/UBSLAr6D7BgAg/r/dSm6ChUAAABmD74ChMAAD4TzAwAAhdsAdAyLC415AokAO2aJAesFi0UAEP8AQuvcMcBIjb24ADi5BABR"
+		. "8yCrjX2cuQAtAGY0x4UBFQgBEgIJjb0CyAUliUWYMcDzIKuLBo2NARONfYCYiUwkGIl8AKuEvdgDqwTHhcAACaIcAITHRaAErCAEXqochAMQhAsM"
+		. "hAcIgQMRAmYYMcCCNI2V6EeAIgFBgSuD7CSFP43uvQEMg0IANxiAQYN/g0JO+IAEgGABGggAA0fgzYAFJgFHs0MI/4NDgSw/ikMBDJBDBTOAQgEZ"
+		. "CADox4UAQAouQyBCHoEqT1YfwCxDIAAbZoPCXgMgdQmDvdAAAgB1rlmABAFAggTwggRSgASBwSIDdRODvRAAApVAHKRABgJAE3U/ioOe5EAclYMD"
+		. "DYEg6wrDAouBJwGJGMAUjVWoxIkQiwaDvYIXi0AUCA+Fr4MsFI1VuBkCqkW4BDrWq9CLVZqo0qpHGCeAIX3IBaoyjQEkiwYFWoGgjU1KyAZXTBdX"
+		. "6aeGK4ikjX1ELIhAwqqoxYS7DS7FhNCGhMEfAczMAsyjADMAA0W4ZgA/A4CGMsiAJkXAQV/ChVXIuMdF0PVg4QcwQBRgJI8HQaIko0EhDwl0XUMm"
+		. "lHQY1CXg4ACJXMAHQHXIwf4fieAKjQBFyIkEJIl1zAjo5hGiLA6LA40AUAKJE2bHACKCAAQHMf/pHgeiAwIbQzwBixMZwIMA4OCNSgKDwHsgiQtm"
+		. "iQJEBYC9kYGVALpOIBN1boFExiggE8Ijx4WY5EigIqy9OMUCgQFIiQFYiQESaIcBD7ZCoImFlFmgAOm5YAIAEhWgHHEoAokzoBxCgx916WTriEIR"
+		. "6+7gIuEHA5APhV8FACW9cGFgGA+EUoIBghEPhGGxgksPhC9BsEYfLAAZY4ENAxkPhSqhA2JfSMCD+AEPhmniAWEYKGaD+OAL0qA6i4UGQOABwitF"
+		. "uMH4H1iJRbzBLYIsuIAs6OqEIEj/giCNQgcgV2CBQcEdDECJhWDgALglwki1QQKNlQEnicEIiZVQgUqljX3YQ4AFASUMQI214QCJG+ReQAOs4k2B"
+		. "TciNjRFBHsdFsOJMRaiL1IUggWIQg2GobU2ZYqFmXAQk/1KhjolAuGgPhKbBLw5gKKIs6TbTwAEVMS4EMYQpD4QVwcbroVMk0AVHO32QGA+PlUAE"
+		. "ulGgLsTr56MH34uFQSEBLZR1HEAHESlU6YEAFMXjBHogBBR1SXRYJV+ZwTGFMMEnIDLyDoM/lsKBCKkKvAACulNhkOCD+Al1KMxqBBfIaiEiCutN"
+		. "ulxDBgh1TiroDaMD4Q3eD8AaX+W1JQfUEg+/Ag9aJKULXZMkOnILfA7kAy2AASksiwMkF/UBOsAXS/0JYCVQBPEAQAIgAAzpO/AAMAOLdRCLBXEC"
+		. "QFUaRcKJBuk2HsABAhUWmhMhLukvYbMBCQ+FxYETQgG6ImugDzsF2MBcdSSdlVsOgAI/E5NbunACA7LQCgPd/A8DBgN2AgMa1AoDrA8DBgOLdRgB"
+		. "ggsEJI1WAYu1g2FDsFMQiXQkDDAPoWAACOh19uAMaDAEXUIbHkob0jzAFinAFukSRDACunvTHQUPhRLGE3B9vII38g8QQ9ICATiIjY14AjiIIaIz"
+		. "RbihxAALx0VOjOEAZTghYYgFUAHAD/9fPzk/OTI58g8RRRKQgDkxwKA5i1WAAGaLFAJmhdIPKISY+zwRETARdRCA/waDwALr1t8nZ9sn7h4xEMkL"
+		. "AierNzDbcAYzQCaRAFU6CfAkEi/j0A6RQwjrFdIVVAExAfQV3ACuUQZUEgOhBh8DOwQIEwNSxkxSArlmUHVKLvAJdu9pwH3jaWADfw97DzHJO00Y"
+		. "fbK6okeKAuO2MD8gcAMAFIszjUYCiQMjMANiAWaJBlYm1EEE68eiAI1l9In4IFteX13Dsb2/EzAAgABWob1hH3UMAItdCGbHBhQAFMdGYxxGUh2L"
+		. "A2YBwAxFpI1K92aDIPkXD4f2MB+J+ADT6InBgOEBdBAKi0WkMBuJA+sA1maD+lsPhbWdcsKkJY+yAZGmocgwJntgJfUlyCQkb60vJWxei6BFwI1V"
+		. "tPBjjLOFCMdFtIMspIsAi3R9pDOSsO2QtMhzBDyPscfAj9INpA13E7oREYDT6oDiAXQaQw3C30ANXQ+EvzGxcSuKtsEDdKAnHCTogWKJwGaFhtAF"
+		. "jX3cYjY4jVXYUKaACGAIddiox0XgkQeLZJG07w48JBhvD/y0oQrztD4JaUAaRgi1JVICHBoMEFSJ+uMLEeML4uALLEQPhJIuE4PIgCw6kF0PhdDB"
+		. "hcICYArBYTIGCQDpwFARoALYIg+F0R3hG1BgKWBYhIlWMSEIAOnVERDAg/p7D4UVMd4BHurYDB7MCx7YP0M/Qw8eVQIeffJCAxAdZnBfSAmTJ4Y8"
+		. "Ugr4fQ+EFo2RAIF+hCMBIg+EJj6QABAO6fOiAcl0CPONepGlg/lcD0KFEZ1mi0oC0AAi5HUhoGX+IgAQ4A3ACwCLE414/maLChGyAcbp3XIO+Vx1"
+		. "gXAPQP5cAOvX0ABCL9MALwDrydAAYqHTAAgA67vQAGbTAFAMAOut0ABu0wAKKADrn9AActMADQAU65HQAHTTAAkA68KD0AB1D4VNYBlgCFjHRZhy"
+		. "2TFv/oEKUAD+izvB4gSJfRCkZolQsAkPjXkA0GaD/wl3BAFA+usgjXm/wAAFAHcGjVQKyesRBI15kAb/BQ+H/zFBm1QKqaAnYQODxwAC/02YiTt1"
+		. "rwTpFiFMiUj+6Q0hcSBGCIn50B8pwSCJSPxmxzCziRNk6duQmI1CQAYAc5YCwXAeLQ+UwLS2AAjBiE2kD4TLAAEAAGbHBhQAwr8AQADHRggAKAAw"
+		. "AgwBMIsDZoM4LQB1CIPAAoPP/wSJAwA8iwBmg/gIMHUTC6CDAwLrEFiD6DEANggPhwBU/v//iwtmiwABZolFooPoMAEAKgl3OWtGDAoAg8ECiUWU"
+		. "uAoBAGT3ZgiJC4lVAJyJRZiLRZQBAEWcD79FopkDAEWYE1Wcg8DQAIPS/4lGCIlWiAzrtQKFLnQTAX0AEIPi32aD+kUQdEXpygF3wAK5QQG2iQPf"
+		. "bggAxQUAAN1eCIsTZosCAgV2ymvJCoPCAAKJE4lNmNtFApgAkZjefZjcRlIIACjr1YAfiYAuPjgUdQsJIAE0gDItdBAKxkWkAHj6K3UOBQIVAoAE"
+		. "LQ+HbP0Q//8xwIF0EYPqgYAJ+gl3D2vAAXIAD7/SiQsB0OsQ4zHJuoFPOch0AAZr0gpB6/aAUH2kAN0AbFWBRnSABN756wLeyYE5AhaAHxR1I4n4"
+		. "iwBODJmLRggPrwDPD6/CAcGJ+EmAlAHKA4bpEYAmMcLAABUFD4XogAUBJSB9pNpNpAAh6dcRAAi5axWA54P6dAB1QWYPvgGEwAGAmxNBZjsCD4UQ"
+		. "vfz//wKF6+WASD24EwBLdA6APAMTAX0BKetKQAMJAKGS2IAG6ZwABLlwwxKoZnVFzRJxzxIVxRIpyIXrZIMU0EAI60yEuXbDE24PhTHAD1XNFB3J"
+		. "FMDCFA+ADwgQAKHgFIB4RgjrGhZDE9TABoADixCJAAQk/1IEUDHABOncQAu6EwCAAADT6onRgOEBD0iExfsAoVWkAhTpApAAA41FyIkcJACJRCQE"
+		. "6N34/8D/hcAPhavBCAF7AI1K92aD+Rd30jHEEIDiQBCNQAdCfQDr24sTg8j/ZmCDOn11dgIUwiGJEH4I64SAMzoPhUJihQqJdCQEQBnoSntEGElB"
+		. "GEXQgAUIZIk8Ax8cAgLWBx0TGQcddJYDHMG4LHWJEQID6dP6AC9l9FuAXl9dw5CQkIFq/8UAPwAfAB8AHwAfAB8AHwABDwAwMTIzNDU2ADc4OUFC"
+		. "Q0RFAEYAAEgAYQBzAABNAGUAdABoEABvAGSgBCJVbgBrbm93bl9PYgBqZWN0XwAAUFQAdaAEaGADUyIFAEAATwB3AG7gAnJFYAZwYAMAAF8gAEUR"
+		. "YAJ1AG2gAQ0KABgJACIFCCYKVHlwAGVfAHRydWUAAGZhbHNlAG51hGxsxwNWYWx14AMB6A0AAFWJ5VdWAI1VtI19vFODAOx8i3UIi10QCMdFtAKy"
+		. "BolUJBAUjVUMwAAIx0TEJBBibUQkDGK3oEsB4QGJNCT/UBSLCAO5AyEGUwyD7IAYZsdF2AgAgJ8IyItDYI/UjVW4AIlF0ItFDIlFIOAxwPOrYGPH"
+		. "RQLAAFMAiUW4iwbVIAkgJAsc5AAYIguADz+hDsEMoQ5kAyN+qQ8YgwDsJGaDOwl1DDPgDeR0CFCHWGIcU4GU7KwhFEUAr0XmAAEBoAVQBIsAicGJ"
+		. "CNOBwSADgIPTAECD+wAPhq0CE6BgjX2wMcCiGiEWmACJVaSNTYiJRYisocQAgsdFmCIkABCJTCQYjU2sjMdFQZhA20WYFIAD/rQkJOoaQAXiGWQD"
+		. "8xlhFwgYMcAgGotVkGYAixQCZoXSD4QCi0ADhfZ0DIsOAI1ZAokeZokRgOsFi30Q/wdgdkjr1rkAlgC7wdyFEMB5K78BAZm7MAGhCU2ESff/KdMA"
+		. "ZolcTb6FwHUA6YtNhIPpAmYAx0RNvi0A6xAAmUn3+4PCMGYEiVTCA/AByY1EhA2+wdGF0nQaFg4y3kArMcCDK2Mrg+wADItdDIt9CIsAdRCF23QO"
+		. "iwMEjVAClwAiAOsjEP8G6x9g2CJ1K5WwASKxAQSQAVwAAQIAQAIiAIPHAmaIiwdmEAjZ6TrQESCDBgLr6wADXHUKGAAD8Q0DXADrzQuhf9IB090B"
+		. "YgDrrx3QAQzSAdB82wFmAOuikdABCnUb0AGX3QEgbgDpcP+gYoP4AA11H4XbD4RyQ9AATQJyAOlLQwIJBUMCTU8CAnQA6SYRYAGAPbySZQuNUALg"
+		. "QFZedxHrQo1EUIGgACF2BhAEHxx3M3AI0DPbA3UA6wYDQBByXFwkBA+3kgdwIeg9kATp0NCOASADD4sTjUoCiUALZokC6b0gAf8YBum2kwG7FwL/"
+		. "BgiDxAx1MDHAieURwRoQi1XwGhCLTQAIic5mwekEgyTmD+BxtuRwJGaJAHRF8ECD+AR1DOS4sS+AIBGLCo1AcQKJMmaLoAFmBIkxQAUDg+gBczDk"
+		. "g8QQYSByYg=="
+		if (32 != A_PtrSize * 8)
+			throw Error("$Name does not support " (A_PtrSize * 8) " bit AHK, please run using 32 bit AHK")
 		; MCL standalone loader https://github.com/G33kDude/MCLib.ahk
-		; Copyright (c) 2021 G33kDude, CloakerSmoker (CC-BY-4.0)
+		; Copyright (c) 2023 G33kDude, CloakerSmoker (CC-BY-4.0)
 		; https://creativecommons.org/licenses/by/4.0/
-		if (!Code) {
-			CompressedSize := VarSetCapacity(DecompressionBuffer, 3935, 0)
-			if !DllCall("Crypt32\CryptStringToBinary", "Str", CodeBase64, "UInt", 0, "UInt", 1, "Ptr", &DecompressionBuffer, "UInt*", CompressedSize, "Ptr", 0, "Ptr", 0, "UInt")
-				throw Exception("Failed to convert MCLib b64 to binary")
-			if !(pCode := DllCall("GlobalAlloc", "UInt", 0, "Ptr", 9092, "Ptr"))
-				throw Exception("Failed to reserve MCLib memory")
-			DecompressedSize := 0
-			if (DllCall("ntdll\RtlDecompressBuffer", "UShort", 0x102, "Ptr", pCode, "UInt", 9092, "Ptr", &DecompressionBuffer, "UInt", CompressedSize, "UInt*", DecompressedSize, "UInt"))
-				throw Exception("Error calling RtlDecompressBuffer",, Format("0x{:08x}", r))
-			for k, Offset in [33, 66, 116, 385, 435, 552, 602, 691, 741, 948, 998, 1256, 1283, 1333, 1355, 1382, 1432, 1454, 1481, 1531, 1778, 1828, 1954, 2004, 2043, 2093, 2360, 2371, 3016, 3027, 5351, 5406, 5420, 5465, 5476, 5487, 5540, 5595, 5609, 5654, 5665, 5676, 5725, 5777, 5798, 5809, 5820, 7094, 7105, 7280, 7291, 8610, 8949] {
-				Old := NumGet(pCode + 0, Offset, "Ptr")
-				NumPut(Old + pCode, pCode + 0, Offset, "Ptr")
-			}
-			OldProtect := 0
-			if !DllCall("VirtualProtect", "Ptr", pCode, "Ptr", 9092, "UInt", 0x40, "UInt*", OldProtect, "UInt")
-				Throw Exception("Failed to mark MCLib memory as executable")
-			Exports := {}
-			for ExportName, ExportOffset in {"bBoolsAsInts": 0, "bEscapeUnicode": 4, "dumps": 8, "fnCastString": 2184, "fnGetObj": 2188, "loads": 2192, "objFalse": 5852, "objNull": 5856, "objTrue": 5860} {
-				Exports[ExportName] := pCode + ExportOffset
-			}
-			Code := Exports
+		if IsSet(lib)
+			return lib
+		if !DllCall("Crypt32\CryptStringToBinary", "Str", codeB64, "UInt", 0, "UInt", 1, "Ptr", buf := Buffer(3955), "UInt*", buf.Size, "Ptr", 0, "Ptr", 0, "UInt")
+			throw Error("Failed to convert MCL b64 to binary")
+		if (r := DllCall("ntdll\RtlDecompressBuffer", "UShort", 0x102, "Ptr", code, "UInt", 6624, "Ptr", buf, "UInt", buf.Size, "UInt*", &DecompressedSize := 0, "UInt"))
+			throw Error("Error calling RtlDecompressBuffer",, Format("0x{:08x}", r))
+		for import, offset in Map(['OleAut32', 'SysFreeString'], 5340) {
+			if !(hDll := DllCall("GetModuleHandle", "Str", import[1], "Ptr"))
+				throw Error("Could not load dll " import[1] ": " OsError().Message)
+			if !(pFunction := DllCall("GetProcAddress", "Ptr", hDll, "AStr", import[2], "Ptr"))
+				throw Error("Could not find function " import[2] " from " import[1] ".dll: " OsError().Message)
+			NumPut("Ptr", pFunction, code, offset)
 		}
-		return Code
+		for offset in [30, 91, 116, 249, 392, 522, 643, 755, 779, 800, 933, 1094, 1248, 1449, 1823, 1956, 2007, 2258, 2264, 2307, 2313, 2356, 2362, 2485, 2539, 2815, 2865, 2892, 2970, 3151, 3234, 3632, 4567, 4606, 4633, 4643, 4682, 4716, 4723, 4766, 4779, 4794, 5835, 6392, 6564]
+			NumPut("Ptr", NumGet(code, offset, "Ptr") + code.Ptr, code, offset)
+		if !DllCall("VirtualProtect", "Ptr", code, "Ptr", code.Size, "UInt", 0x40, "UInt*", &old := 0, "UInt")
+			throw Error("Failed to mark MCL memory as executable")
+		lib := {
+			code: code,
+		dumps: (this, pObjIn, ppszString, pcchString, bPretty, iLevel) =>
+			DllCall(this.code.Ptr + 0, "Ptr", pObjIn, "Ptr", ppszString, "IntP", pcchString, "Int", bPretty, "Int", iLevel, "CDecl Ptr"),
+		loads: (this, ppJson, pResult) =>
+			DllCall(this.code.Ptr + 3036, "Ptr", ppJson, "Ptr", pResult, "CDecl Int")
+		}
+		lib.DefineProp("bBoolsAsInts", {
+			get: (this) => NumGet(this.code.Ptr + 5048, "Int"),
+			set: (this, value) => NumPut("Int", value, this.code.Ptr + 5048)
+		})
+		lib.DefineProp("bEscapeUnicode", {
+			get: (this) => NumGet(this.code.Ptr + 5052, "Int"),
+			set: (this, value) => NumPut("Int", value, this.code.Ptr + 5052)
+		})
+		lib.DefineProp("bNullsAsStrings", {
+			get: (this) => NumGet(this.code.Ptr + 5056, "Int"),
+			set: (this, value) => NumPut("Int", value, this.code.Ptr + 5056)
+		})
+		lib.DefineProp("fnCastString", {
+			get: (this) => NumGet(this.code.Ptr + 5060, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5060)
+		})
+		lib.DefineProp("fnGetArray", {
+			get: (this) => NumGet(this.code.Ptr + 5064, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5064)
+		})
+		lib.DefineProp("fnGetMap", {
+			get: (this) => NumGet(this.code.Ptr + 5068, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5068)
+		})
+		lib.DefineProp("objFalse", {
+			get: (this) => NumGet(this.code.Ptr + 5072, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5072)
+		})
+		lib.DefineProp("objNull", {
+			get: (this) => NumGet(this.code.Ptr + 5076, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5076)
+		})
+		lib.DefineProp("objTrue", {
+			get: (this) => NumGet(this.code.Ptr + 5080, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5080)
+		})
+		return lib
 	}
-	_LoadLib64Bit() {
-		static CodeBase64 := ""
-		. "xrUMAQALAA3wVUiJ5RBIgezAAChIiU0AEEiJVRhMiUUAIESJyIhFKEggi0UQSIsABAWVAh0APosASDnCD0SEvABWx0X8AXrrAEdIg30YAHQtAItF"
-		. "/EiYSI0VQo0ATkQPtgQAZkUCGAFgjUgCSItVABhIiQpmQQ++QNBmiRDrDwAbICCLAI1QAQEIiRDQg0X8AQU/TQA/AT4QhMB1pQJ9iUWgEEiLTSAC"
-		. "Q41FoABJichIicHoRhYjAI4CeRkQaMcAIgoADmW4gVfpFgkAMADGRfuAZYFsUDBJgwNAIABsdVsADAEox0X0Amw1hBAYiwRF9IBMweAFSAGa0IBG"
-		. "sIALgAFQEIALGIPAAQANAImUwIgARfuDRfQBgH2Q+wB0EwEZY9AILRR8sgNWLIIPCEG4wlsBMQZBuHsBuw9gBESJj1+AfSgAdFBkx0XwjLvwgpsm"
-		. "mhyxu/DAXcMP5hvHXcjHRezCSqUGAidEQQLsSUGog33sAA8sjsqBL5hhLJQxZsfUReiMMeiCIV+AIa8xluiAMcMPH4gx6y+ZJkIglCZ5x0XkgiZo"
-		. "KMdF4Mwo4MIYvhpt8SjgwCjDD37AD8UogwRF5MAFMDtF5H0IkA+2wJDwAYTAuA+E6EDpQVwGkTBBmdyNiZxbUL1AAajgB+FoSpjoaJjkaP4fJQoc"
-		. "mTQK6f5DVIkK6epgAo3qEzjiE0Fsx0XcrCay3KIeihm/Jq8m3KAjXeMHSuAHCIOFGpCIGpAthBophhrWJCwsDesbp2YK5AlkCb0gewk6UC4Dv04t"
-		. "NItAGIP4AU51YTCAEAoQXB4gcReGA2Iw4wQGD4Wf4EMzYwVhswkYoAHgl2nH1EXYbC/YYicXAAR/L01tL9hgL+MH1xdnL+m0iwJpD21AA2QP1GwP"
-		. "utRiB6AABH8PbQ/UYA9V4wdgaQ8Pag8BZw/QtWwP0GIHKn8PcA/QYA8p4wfqFmgPk2JyMI00SAFACk1B48AQAExDgAZBColMJCDBNa1g+P//6WjE"
-		. "M8I1Bax1H2QFLDtiITs9SQUQAg+Fg6NtqEiNoJVw////4QSKYJoox0XMIhxIIxwuSIiLlXjAA4tFzAAVYAHATI0EABttHEHoD7cQUxzMkAAKBFBd"
-		. "AA+3AGaFwHWeVOmqUjzIHBXIEhHdbhUfFR8V7QbIEBXzA5338ANbPCoRb6AO7zMPTtoFDuzQBahI8XYPjET5RP//8VwPhN3iDMTl7AzE4gjwFO8M"
-		. "7wwNB/bEAAfzA7DwA1dzMZRyY+sBkskGvMIChs8GzwbOBha8wAbzA0bIBoNFwIFwAcA7RTB8kKyFOl2khX2vha+FqJFIgeLEAQxdw5AKAOyiDgAK"
-		. "VcCjMEEsjawkgBVCpI2zpJURJEiLhQthAKAbFLUASMdACNvyEZAJhaICAQpQAArTAAcRUXUBMSmD+CB01REtAQp0wi0BDXSvES0BCXScLQF7D4WO"
-		. "KcJUrweiB8dFUMIQKMdFWHQAYHIAiwWOA+E4AT9BowX1/tAAEMdEJEBTAkQkOAGCAI1VMEiJVCSqMIAAUIEAKJABICG3VEG58QFBkha6ogKJUMFB"
-		. "/9LwFzhQbGh/zxDPEM8QzxDPEM8QJwF9WA+EwvJHaQGF8IesgV4Bg/gidAq4IBDw/+lmEYEOoblgB8IeAOj3/f//hcB0+iIDAkUBAu8M7wzvDO8M"
-		. "l+8M7wwkAToVCsQQDwi3CAhSKMcLOsMLtAOIsgNJsDKLjQMsRWjESQL/YA1/Go8Njw2PDY8Njw0nAZgsdR1vB2MH6cLQC+dAkIwd1Qy6D58QnBCw"
-		. "OQIJtjmLVWhIiVAaCLPSfcoDkwVbD4W+ZUJ4PwX0M/LJcAD4dADTUkIQM8P7+TO10QD/M+yNVdDF8zPw/zP/M+AZwtjwM3DHhay07R8aPx8aHxof"
-		. "Gh8aHxonAV0PNoRh45803kdQKCfH+pkpJxUOMQLiJouVcQz1UA1wRCftMBgvDS8NLw0BJAH+tQAKdMJIi4XAAAAAAEiLAA+3AEBmg/gNdK8NkAlE"
-		. "dJwNSCx1JAdISAiNUAIFGokQg4UCrAAQAemq/v//gpANbl10Crj/AAC46T4NASoTggAJyAAJMGbHAAkBIwELSIuAVXBIiVAIuAALGADpAQo8A1ki"
-		. "D4WMEwUaUwUXiYWgAgkdBFiVggaALQc7CADpRFkEDTGFwHWEXYKCDA8/XA+F9gMhP7mEVnU0AAmCPIETiQJC5YA8IpYg6ccKL4Q6FCOqXBcjgBAj"
-		. "L5QRL5cRKjmQEWKUEQiXEfICVY8RZpQRDJcRq5ARblWUEQqXEWSQEXKUEQ11lxEdkBF0lBFCuJMR1sIBjxF1D4WFigWOmcHEFQAAx4WcAcvByw47"
-		. "gwyBBoARweAEiUeB/UIKT1MvfkJNAjkcfy/HB2IHxwMB0INk6DDpCemuo2sqCEBEfj9NAkZ/LJoKN6mJCutczQdgLwpmPAqmVyoKhHm1CNcpg0Io"
-		. "CAGDvcEAAw+OuIlAmkiDIggC6zrjB8J16QcQSI1K5wchitUjPkggPo0DExJQLmCXLJD7QAtFkkgmBynIBkiCFuMCQAhIg+hOBMs8dRcjpdcHbzEt"
-		. "xHQubj4PjgyKp+Q+iA+P9eCgx4WYwSDLh6YADxQGqMdAICCwDDx1IuMGoSTfooMGMHUPITjTCk1+cA4wD46JwdACOX9260yGKAC9AInQSMHgAkgB"
-		. "gNBIAcBJicBpDCkgNYuVYwwKoAdID6C/wEwBwGAP0AUISyPFTGYfbg5+jiVMUwgGAAAO4S4PheYD2BtIPmYP78DySIwPKsEUYQLyDxHgQBUGMQXA"
-		. "M5TEM+tsixKVYQGJ0MAbAdAB7MCJQgP4G5jAOwIG8AUNcADScAASBGYPKMgQ8g9eyjYHEEAIsPIPWME8CFwQFw8kTI5q6h9jAWV0ngJFuA+F+I9N"
-		. "/RCzAhRXImP/Ef8RxoWTDyoBKiFNkwEBTwdDB+syPQMr3HUf3gQfLUsRE68hhCEKOrI1jFRa6zqLlduxAMYbQZ8pnBtEER4xA4NfB18HfqDHhYiE"
-		. "IojHhYRVBxyLlVEBSygj4QCDAgIBi2IAOyEyBnzWgL2iD3Qq61kh4BfJUCONUQMQIxoilOsolwJIgxoPKvIFePIPWb0k+R3BpdU6i0FSREiYSA+v"
-		. "OTjr8jg6AwV1vwawBqEDvwalugYMtyIDAFNToQ98oPh0D4XfkhOAlROMUouyAJAJjRXSEAOAD7YEEGYPvkEK6ZgDOcIlr0taBZ1moQQL8BYWBYAU"
-		. "BYTAdZcAD7YFUuT//4T4wHQdyQqoUtI/FRFkhcwVDgMHV0sF/CI2Q1AIiwXu0QCJwf/SBVMPq/+G+GYPhdMJUQ9FfCIPTItFfN3SCeewAv8O+w5b"
-		. "/zz3DmhFfAG1BJu0BJAOoLmQDmjjnw5MYZ4OBKMGbZgO8lQHkw7kggGWDsFBLzP4bg+FpZIOeKESBkmLRXjSCQOfDmWXDgeSDut0bw5lDnhbYA6D"
-		. "BLoxJ2MOo+wLVSv4yOMLQ+oLNeoL6wUhUgdIgcQwsAldwz6QBwCkKQ8ADwACACJVAG5rbm93bl9PAGJqZWN0XwANCgoQCSLVAHRydWUAAGZhbHNl"
-		. "AG4IdWxs5wJWYWx1AGVfADAxMjM0ADU2Nzg5QUJDAERFRgBVSInlAEiDxIBIiU0QAEiJVRhMiUUgaMdF/ANTRcBREVsoAEiNTRhIjVX8AEiJVCQo"
-		. "x0QkEiDxAUG5MSxJicgDcRJgAk0Q/9BIx0RF4NIAx0XodADwwbQEIEiJReDgAFOJAaIFTItQMItF/IpIEAVA0wJEJDiFAOIwggCNVeBGB8BXQAcH"
-		. "ogdiFXGWTRBB/9Lz0QWE73UeogaBl8IYYAYT5ADRGOtgpwIDdVODtQEBDIBIOdB9QG4V1AK68Bp/Qhs50H9l4FNF8Q/YSXCIUwfooUE2hcB0D6AB"
-		. "2LDuBVADUjAGEJBIg+xmgBge8xXsYPEV5BVmo7IREAWJRfigFhSABACLTRiJyrjNzATMzDBTwkjB6CAgicLB6gMmXinBAInKidCDwDCDzLQAbfwB"
-		. "icKLRfwASJhmiVRFwIsARRiJwrjNzMwAzEgPr8JIwegAIMHoA4lFGIMAfRgAdalIjVUDAIQArEgBwEgB0ABIi1UgSYnQSACJwkiLTRDoAQD+//+Q"
-		. "SIPEYAhdw5AGAFVIieUASIPscEiJTRAASIlVGEyJRSAQx0X8AAAA6a4CAAAASItFEEiLRFAYA1bB4AUBV4k0RdABD2MAYQEdQDAASDnCD42aAQBg"
-		. "AGbHRbgCNAAaQAEAUEXwxkXvAEhAg33wAHkIAAoBAEj3XfDHRegUgwBfAJTwSLpnZgMAgEiJyEj36kgArgDB+AJJichJwWD4P0wpwAG8gQngBgIB"
-		. "PABrKcFIicoAidCDwDCDbegVgo3og42QmCdIwflSPwAbSCmBXfACR3WAgIB97wB0EIEigYMhx0RFkC0AgKEGkIIHhKGJRcDGRSDnAMdF4IGJi0Uy"
-		. "4IAMjRQBcQEPD7cKEAQJDAEJGEgByAAPtwBmOcJ1b4EPFQBmhcB1HokLi4AXhQsGgDIB6zqTGgR0IlMNdAqDReAQAelm/0B2gH3nkAAPhPYCVkUg"
-		. "wH6JwC4QuMBkAOkBQAFlCmw4AWyMysMKhWrIqMZF38A52MM52IYb/sjFOYIE0DmNCsU5xwXLOb7fwjlRDcE5UQ3BOdjGORDfAHQSzTjrIIMsRfwA"
-		. "cgg5IAI5O/0M//+ApEA6g8RwXWLDwruB7JABBIS8SGvEdsAB6MQB8MEBwLLgAgUCwPIPEADyD6IRQIXHRcCECMjEAXrQwgGNgGdAioADASNIAIsF"
-		. "hOb//0iLoABMi1AwQAN2QQMQx0QkQAMNRCQ4hQICiwAfiVQkMMHtlQECKEAGIAEQQbnBBwpBwi26QgWJwUH/sNJIgcQBF/B3QOl3fwAXABmgeKNs"
-		. "gSEACOReD0yJm39veW+4MOAHKRzQgyyTv2+pbw+Feg9gOWEIIwhgb8AtAOkegF8T34IfE9qCx0XsCSEu61DgARgAdDYLi6oAC+xCAUyNBAIzYlRg"
-		. "K41IQAFhOQpBQQBlZokQ6w/hU4sQAI1QAQEBiRCDWEXsARQJR2OO5VRAWyc85Dsg6TsDExyvD2aAxwAiAOleBEOAKcgP6UpjAhAhDYP4KCJ1ZmMI"
-		. "GXIIXADT7hdcDuYDTw7SYwJEDk5cXw5fDsgF6XNQDl8dSg4IXw5fDsYFYgDp2gBQDuxk5EMODF8OXw5hxgVmAOmNwwsqB3l9KgcKLwcvBy8HLwfi"
-		. "Am5IAOkaLwfpBioHDR8vBy8HLwcvB+ICcgDptqcwTy0HkzMBJAcJLwcPLwcvBy8H4gJ0AOk0BS8H6aFXD7YFmdZA//+EwHQr1wcfRHYNxwB+dgcT"
-		. "ZwVB4jqD4AHrNqkCGoWpAhTFAD2gAHd9A31ABnxfDV8NXg3vAuECdbPvAtQHD7dRUPFyGCBUUInB6IZxCDTDBB43zwRgAGADEo9MAQhFEANxT0IN"
-		. "hcAPhab736BtXwnYQT4EQaggJE71TQtgWdVriQBrjQVC8wdwBVBZxKjrMg+3RXAQg+AP0qzAWlBTtrAAZg++kqiSXugRAjBmwegEEQTRgIN9gPwD"
-		. "fsjHRfhwOwgA6z9TCiWLRfjASJhED7dE4HwOC5hEicJfD+BbbfjQBDD4AHm7JVr1Cw=="
-		static Code := false
-		if ((A_PtrSize * 8) != 64) {
-			Throw Exception("_LoadLib64Bit does not support " (A_PtrSize * 8) " bit AHK, please run using 64 bit AHK")
-		}
+	
+	
+	static _LoadLib64Bit() {
+		static lib, code := Buffer(6960), codeB64 := ""
+		. "a7gAQVdBVkFVQVQAVVdWU0iB7GgAAgAASI0FiBYBADCJ00SJTCRcQEiJzUSKbAEchAgkkAAAXIsBTIlAxkiNlCSMATSJQFQkKEG5AQEUjYAVHhUA"
+		. "AEyNA04Qx0QkIAAMAP9QBCiLA1aD+v91LgUASj4AumYPvgKEIMAPhGIEADiF2wB0D0iLC0yNQQACTIkDZokB6wAC/wZI/8Lr2SBFMeS5BgA6RTEA"
+		. "yUUxwESJ4EgQjbwkmAAQTI20hCSwAXTHhCTAAWbZAADzqwIrAL/uAIcBKaLIAqGEJKACFoQCOQcBDwE5AEzzq0iLRbUADIwCFGYAJQEQCAARQEwk"
+		. "MEiJ6QEh4L0EMrgEMoQ3AngAcUCBCQUBBDgBBEyJdCQo4wF8AQ//UDCAMQVfgDVYjQVggEsECMCBQ+j3hEsCMgA2+ItPAbIBCYRTuwBIgLYwBjsE"
+		. "qwEcEAA474FfASSAX6RHhIIbCSSCVA3AEyjABQALTI0dtQ4UyR8AJIEGTImcJP4YwAHCI4QhgR+BE4Mf20UlwBVdwBVmg4NoA3XKCkAC0EEKdV4B"
+		. "BQE9MwMFAlp1TgEFAR4DdUoQQAIwAQVBvMCqAKR1OQCU7RMHlBFBsOEalOsGQbwBEEA8QDpCQEVAQYP8AgM6TFuEBcGYGIATQbQAgRWLEEAoD4WB"
+		. "SEyJREQkKMBDTYnwgB8o3hJERMAIg8LGvtAAR4EOdYW+Q0gqZwFQVyqDJzDvAA8DvwIpQW2MAgVCZBBaSnxBrkxHW+nFgnQ9Vv8AKYFv6IJt6YTs"
+		. "iZNAWCEcifcCeTHSgDi/IQQiXYYYhA+jRiJmlGMQ3aAFQKEwxD8BIANBSWABLiBgAUEDYQQ4ZARMib604gbEBnVoQBhhDwPFi89gKKQWQEeAKP4R"
+		. "Q0dhNEgJdFvjKXQbdyndBYUmSeA1idpIiawZogHoT6AxoAYPhLACBwEqA0iNUAJIAIkTZscAIgDpFp5hAkAKGwBDAUiLIBMZwIPgIHJKAgCDwHtI"
+		. "iQtmiUICwQuAfCRcIZ+uUWASD4WpxkpYYBMxYO1FD7b1QidBSrhjQALhN7wkcGVOwwGIXcsBoMsBwQbGAYQCC0jdwE9wgQEBCYEBeIEBIjIVgAFg"
+		. "gQHQJANo6bc7wSjgGB1KI8Ai4yZ144jpSv8AAAbr7GEqFaENAwAZBWBWvCTAEUE0D4SboAGF7Q/EhIQjVg+EUQEB6SUSLGEgqhBgRITtDwSFTsAD"
+		. "QY1EJP9Ag/gBD4aSoAGLUWMVZoP4gAsBIDtI8GOEJHihCCAzwUaBjxPhACM06LXAKf/FSEKLQRuLfCRoQ2BI0IuMJEgBK9KhTeEk9AxAAQeowhGg"
+		. "l6SgASrgDEAPKIxiBCEEwU11oQlwwVHgBFwi2kQHmJHgAA8QlEIHDylEbNXgA1gEB2ABB9gIBwIs3IsBxAkiXQBXKPhZYikwEZQkSIAFAFmJxwKF"
+		. "gICI/v//SJiE6TMgLP8G6behAaVgNRp1NesuADXvgSykhJtgBesfoQUwtQUY/8c7wKrADQ+PbQEhC40VCg8AAOs64GAI2WAeQUkhMnUlXVEEEQww"
+		. "wjNQGmBQAumC1hE+g/gUdUivAm+kAoAcoQIEHPSABqIizUsig6s1wtOCfw5CBQk8dS0vPC88AAvxBetOxZADTpMDCHUqISFoB7ItICjrYS8UKRQE"
+		. "IRR4SA+/tDQEKKVBYyjo7jTzC68O0QMvkQGgB5gBIjqSL4QU/WEWUASBQgFAAiAA6QIQASSLBnAC/8ARAkXCgIkG6e78///SFGYN0QdhMOkEYAKx"
+		. "EA8GhQMTYwFIOw27C6myEmsNsG4npWPhAARXvxKmY2ADZGMDOWoDqqtvA2wDPWMDCGoDc28DR2kDgBkxJkWJ8TMU/wLAcEcg6KL1///E6TiTDgh1"
+		. "GCUNhBoShBAc6RqBBY0Vn8IM0hwFD4Xx9lMRNXF4b/IPEPVCxGCANyjjZGVBaQ1DCqOUgQMxQD1xAAVmReECEWmSOYsB/3OUoASjR5VvAQVPabVw"
+		. "kQHA8g8RhCQIAzzxSAiUJPBBNIsUAmZAhdIPhEn7nxKJghGSEoPAAuvPjym3jykUIXQSrLARUQMUPTRk3vpBW+nXYACnPAkMdRAFMVAO/1AQ64oU"
+		. "0hcOVQH/FXtwEh/XWAQDkhUOA1EB/xVKL4EVhFczAjVvupABdTXV0QlzP3J9NHJaPw85DzYjMg8gAiwvAkxMfZUlMAdJMAfr5EAD3f8SBgAYgcQR"
+		. "y1teXwBdQVxBXUFeQThfw5AKAJbNYZtJuIQAJhMeZscCFIAfAMtIidZIx0IIAWMhE2aLCmaD+RAgD4f7Mq7ASNMA6KgBdAlIg8IJcRfr3cABWw+F"
+		. "u78RaEAqYGnzxuABIijQEYMsiRNgK6ElgFO1vRMEAIAoJ1QkaEjBxOUJNCdMjaQzyQ8nWceySIsgghJTVFDYjVgFgQl0fjOcTIB2YKhIiwcQA1zD"
+		. "afkVLSMX2NAjZosIwQ13FABIiepI0+qA4kWSDcCQDQPr4JABXQgPhLyREYXJD4QCs3IE8kiJ2ei7U4BjgGqFk+IfBzM5TNSJZPGvtMILi2EJQAf9"
+		. "ADSoRNKxADHXBNNhAX81BYUAMPwOZoM+CXWgHkiLTggkKRIXCyYdFAv3DHbiUAAsD0yEMeAwIByDyPBGOjBdD4XyEHWEG2bHhAYJ4Ax+COkCQAEh"
+		. "4AIiD4UXgu5CAoMgAsBaA0iJRghgAhAIAOnkkm75ew/chQ6QD38ecB74oQV9HnK/fx7B538efx54Hqxjcx62DQ+GWODxkAB9WA+E7ZEAsRnkIwEi"
+		. "mA+EVpAA8A7pB1ENgIXJdPNMjUDyM0CD+VwPhQ2CSUgCArECdSZmx0L+GiIgDMDSDnERiwNMAI1C/hu3AGaLCGaD+SJ1QL/p5gAAAACgXAB1CGbH"
+		. "Qv5cABTr0gBoLwNoLwDrCsQANGIDNAgA67aFADRmAzQMAOuoABpCbgMaCgDrmgAaciEDGg0A64wAGnR1AgsBGgkA6Xv//0L/ACB1D4VDABJIQIPA"
+		. "BEG5BAB4SAyJAwEhAIGLQv5MAIsDweAEZolCAP5mQYsIRI1RANBmQYP6CXcFoEQB0OskAA+/AQ8ABXcGjUQIyesKEwAQnwIQD4fu/gT//wAUqUmD"
+		. "wAIBAT9MiQNB/8l1CKrpCgF3iUr+6QIBAXaLVghMicEBAH0CSCnRiUr8CGZBx4NB6eECAAAAjUHQZoP4CRBBD5bAAFUtD5QAwEEIwA+EuAFBgE7H"
+		. "BhQAugAEABBIx0YIAAMASIuAA2aDOC11C4ImWIPK/4AigQmLgKX4CDB1DoYTgwMC6xA2g+gxAAsID4cCRQBUSIsLSA+/EAFEjUiBb/kJdwAXTGtO"
+		. "CApIg4DBAkiJC0mNgHZASIlGCOvXgzEuhHQUAiwIg+HfgEsgRXRW6fACLMACBEG5AkmJA/JIDwQqRoC8BgUA8g8IEUYIADFmiwGDBOgwAWh3wEVr"
+		. "yYQKmIEv8g8qwIAxAPJBDyrJ8g9eQMHyD1hGCEIM6wbMAjKAY4M+FHUQhw8UQSCBRXQJRTHBR5grdQdEDMAGMckAPgGEGw+HYP3//0xVQCBBhyAP"
+		. "QCBJACCYAEyJCwHB6+FFBDHJwVUARDnJdAAIa8AKQf/B6wLzQCfI8g8QRgggRYTAdAbBJ+sEmPIPWUApQCCLDgAdAhQAVg+vVghIiTBWCOktABCC"
+		. "IgUPbIX8wAKAD8KACwQ06QbpwW3BoFNIjQ0kIQCbZg++AQAWGEgAixNI/8FmOwJQD4W2/AGjwkAxEyDr4IA9xoEkdBJNgD0DAnqBA+nGwcfHJAYJ"
+		. "gHwNJoCJ6auRA8xmdU0AFtADEhZqXQsWbQIWDwYWQYbrSnBFFbBAB+tYwdIPRIUkAQ6NDX+TFQaFixU2wytIiwWtACatgBMIAIPAchZFFmYACAhI"
+		. "iU6AbwH/UAgQMcDp1MKL+kjTAOqA4gEPhJn7E4JxoTjpfWABTIniAEiJ2ei/+P//YIXAD4WXwQMlPyCUdxgoB3wnB+vcoAPQOg+FaUYC8oAIAAMU"
+		. "6HfkCE/iCJQkoAGgD0mJ8EiJ6egmzAAWRwt2K6AALA9EhHCidBODyICFOhh9dSlkHcMZiW4ITOk5AQSlEHTUJRC1EEiBxLCAC1teX4BdQVzDkJCQ"
+		. "ISP/CQD9AR8AHwAfAB8AHwAfAD8fAB8AHwAfAB8ABwAwMQAyMzQ1Njc4OUBBQkNERUagQwAAYQBzAE0AZQCAdABoAG8AZKAEACJVbmtub3duAF9P"
+		. "YmplY3RfoAAAUAB1oARoYAMCUyIFAABPAHcAKm7gAnJgBnBgAwAAil8gAEVgAnUAbaABwA0KAAkAIgUIJgoAVHlwZV8AdHIAdWUAZmFsc2UgAG51"
+		. "bGzHA1ZhHGx14APoDQsAU0iBBuzBW0SyiwFMicMgSImUJLihAY1UICRUTI2EgwGJVAAkKDHSSImMJGEhVsdEJFThB+AAIOHhAP9QKIsgqoMDoKQ1"
+		. "YQdYIK5IAASiDmaJQEQkcEiLQ4CzhAwkiAACYX5EJHhIFovkCwAFYCLPiYQk7pCiDwEGQARYoBKhCCBvW6YQ8ABAwgKAADiFADCTBQkRev9QEFw7"
+		. "CYBuZItLc0QQkNA2sQ5bA4E2BABXVlNIg+yQMEG7E4ABuwozEFBIhcBmcAQuUT/SAEyNTCQGeTRBFLsUwAG/MQZImYkE/kSQQvf7KdZmAEOJdFn+"
+		. "Sf/LATADdeaD6QJIYwLBsANEBi0A6xhESJljAoPCMHACFAJZZALoSGPJSAEIyUwB0GcBZoXAAHQdTYXSdA9JAIsSTI1KAk2JYApmiQLrgICwcsGI"
+		. "AuvbQBSDxDAgQiNhC9EKIEiJcATSdIARSIsCSI1IkEQACmbHACIA6ymJMAPrJIBrInUxAQJqJgMCBNABXKATUAJAxAIiUAXDAmYgTJAICNTpUmAf"
+		. "QYMAAkTr6WADXHUcYQPvtW8DAvCVx6GAEwLNHwKgAmIA66UQAgwTAoKrHwICZgDrgxACKAp1HxECiR8CAm4IAOleEpf4DXUjMUACD4RgklWOAnIA"
+		. "1Ok1gwIJhAI3jwKBAhB0AOkMkAGAPbIA+v//AHQLjUgC4CBbXncR6zyNREiBoAAhdgZQBB8Udy0xCRcfBAJ1AATrBBESD7cL6E4dgXW8sZDAAvBr"
+		. "CkyNiEkCTAEbAemlYAE58BfpneQB3hkTHcQgBeknkOAcGDHATI0MHbNhbKAmCEmJyghmwekgB+IPZkcAD74UE2ZFiRQIQUj/UCD4BHXhKrgQdgDx"
+		. "BRXgB2ZFQIsUQUyNWTAIGhBmRIkRNAboAXMC3VIjGMM="
+		if (64 != A_PtrSize * 8)
+			throw Error("$Name does not support " (A_PtrSize * 8) " bit AHK, please run using 64 bit AHK")
 		; MCL standalone loader https://github.com/G33kDude/MCLib.ahk
-		; Copyright (c) 2021 G33kDude, CloakerSmoker (CC-BY-4.0)
+		; Copyright (c) 2023 G33kDude, CloakerSmoker (CC-BY-4.0)
 		; https://creativecommons.org/licenses/by/4.0/
-		if (!Code) {
-			CompressedSize := VarSetCapacity(DecompressionBuffer, 4249, 0)
-			if !DllCall("Crypt32\CryptStringToBinary", "Str", CodeBase64, "UInt", 0, "UInt", 1, "Ptr", &DecompressionBuffer, "UInt*", CompressedSize, "Ptr", 0, "Ptr", 0, "UInt")
-				throw Exception("Failed to convert MCLib b64 to binary")
-			if !(pCode := DllCall("GlobalAlloc", "UInt", 0, "Ptr", 11168, "Ptr"))
-				throw Exception("Failed to reserve MCLib memory")
-			DecompressedSize := 0
-			if (DllCall("ntdll\RtlDecompressBuffer", "UShort", 0x102, "Ptr", pCode, "UInt", 11168, "Ptr", &DecompressionBuffer, "UInt", CompressedSize, "UInt*", DecompressedSize, "UInt"))
-				throw Exception("Error calling RtlDecompressBuffer",, Format("0x{:08x}", r))
-			OldProtect := 0
-			if !DllCall("VirtualProtect", "Ptr", pCode, "Ptr", 11168, "UInt", 0x40, "UInt*", OldProtect, "UInt")
-				Throw Exception("Failed to mark MCLib memory as executable")
-			Exports := {}
-			for ExportName, ExportOffset in {"bBoolsAsInts": 0, "bEscapeUnicode": 16, "dumps": 32, "fnCastString": 2624, "fnGetObj": 2640, "loads": 2656, "objFalse": 7632, "objNull": 7648, "objTrue": 7664} {
-				Exports[ExportName] := pCode + ExportOffset
-			}
-			Code := Exports
+		if IsSet(lib)
+			return lib
+		if !DllCall("Crypt32\CryptStringToBinary", "Str", codeB64, "UInt", 0, "UInt", 1, "Ptr", buf := Buffer(3980), "UInt*", buf.Size, "Ptr", 0, "Ptr", 0, "UInt")
+			throw Error("Failed to convert MCL b64 to binary")
+		if (r := DllCall("ntdll\RtlDecompressBuffer", "UShort", 0x102, "Ptr", code, "UInt", 6960, "Ptr", buf, "UInt", buf.Size, "UInt*", &DecompressedSize := 0, "UInt"))
+			throw Error("Error calling RtlDecompressBuffer",, Format("0x{:08x}", r))
+		for import, offset in Map(['OleAut32', 'SysFreeString'], 5744) {
+			if !(hDll := DllCall("GetModuleHandle", "Str", import[1], "Ptr"))
+				throw Error("Could not load dll " import[1] ": " OsError().Message)
+			if !(pFunction := DllCall("GetProcAddress", "Ptr", hDll, "AStr", import[2], "Ptr"))
+				throw Error("Could not find function " import[2] " from " import[1] ".dll: " OsError().Message)
+			NumPut("Ptr", pFunction, code, offset)
 		}
-		return Code
+		if !DllCall("VirtualProtect", "Ptr", code, "Ptr", code.Size, "UInt", 0x40, "UInt*", &old := 0, "UInt")
+			throw Error("Failed to mark MCL memory as executable")
+		lib := {
+			code: code,
+		dumps: (this, pObjIn, ppszString, pcchString, bPretty, iLevel) =>
+			DllCall(this.code.Ptr + 0, "Ptr", pObjIn, "Ptr", ppszString, "IntP", pcchString, "Int", bPretty, "Int", iLevel, "CDecl Ptr"),
+		loads: (this, ppJson, pResult) =>
+			DllCall(this.code.Ptr + 3296, "Ptr", ppJson, "Ptr", pResult, "CDecl Int")
+		}
+		lib.DefineProp("bBoolsAsInts", {
+			get: (this) => NumGet(this.code.Ptr + 5344, "Int"),
+			set: (this, value) => NumPut("Int", value, this.code.Ptr + 5344)
+		})
+		lib.DefineProp("bEscapeUnicode", {
+			get: (this) => NumGet(this.code.Ptr + 5360, "Int"),
+			set: (this, value) => NumPut("Int", value, this.code.Ptr + 5360)
+		})
+		lib.DefineProp("bNullsAsStrings", {
+			get: (this) => NumGet(this.code.Ptr + 5376, "Int"),
+			set: (this, value) => NumPut("Int", value, this.code.Ptr + 5376)
+		})
+		lib.DefineProp("fnCastString", {
+			get: (this) => NumGet(this.code.Ptr + 5392, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5392)
+		})
+		lib.DefineProp("fnGetArray", {
+			get: (this) => NumGet(this.code.Ptr + 5408, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5408)
+		})
+		lib.DefineProp("fnGetMap", {
+			get: (this) => NumGet(this.code.Ptr + 5424, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5424)
+		})
+		lib.DefineProp("objFalse", {
+			get: (this) => NumGet(this.code.Ptr + 5440, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5440)
+		})
+		lib.DefineProp("objNull", {
+			get: (this) => NumGet(this.code.Ptr + 5456, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5456)
+		})
+		lib.DefineProp("objTrue", {
+			get: (this) => NumGet(this.code.Ptr + 5472, "Ptr"),
+			set: (this, value) => NumPut("Ptr", value, this.code.Ptr + 5472)
+		})
+		return lib
 	}
-	_LoadLib() {
+	
+	static _LoadLib() {
 		return A_PtrSize = 4 ? this._LoadLib32Bit() : this._LoadLib64Bit()
 	}
 
-	Dump(obj, pretty := 0)
+	static Dump(obj, pretty := 0)
 	{
-		this._init()
-		if (!IsObject(obj))
-			throw Exception("Input must be object")
+		if !IsObject(obj)
+			throw Error("Input must be object")
 		size := 0
-		DllCall(this.lib.dumps, "Ptr", &obj, "Ptr", 0, "Int*", size
-		, "Int", !!pretty, "Int", 0, "CDecl Ptr")
-		VarSetCapacity(buf, size*2+2, 0)
-		DllCall(this.lib.dumps, "Ptr", &obj, "Ptr*", &buf, "Int*", size
-		, "Int", !!pretty, "Int", 0, "CDecl Ptr")
-		return StrGet(&buf, size, "UTF-16")
+		this.lib.dumps(ObjPtr(obj), 0, &size, !!pretty, 0)
+		buf := Buffer(size*5 + 2, 0)
+		bufbuf := Buffer(A_PtrSize)
+		NumPut("Ptr", buf.Ptr, bufbuf)
+		this.lib.dumps(ObjPtr(obj), bufbuf, &size, !!pretty, 0)
+		return StrGet(buf, "UTF-16")
 	}
 
-	Load(ByRef json)
-	{
-		this._init()
-
+	static Load(json) {
 		_json := " " json ; Prefix with a space to provide room for BSTR prefixes
-		VarSetCapacity(pJson, A_PtrSize)
-		NumPut(&_json, &pJson, 0, "Ptr")
+		pJson := Buffer(A_PtrSize)
+		NumPut("Ptr", StrPtr(_json), pJson)
 
-		VarSetCapacity(pResult, 24)
+		pResult := Buffer(24)
 
-		if (r := DllCall(this.lib.loads, "Ptr", &pJson, "Ptr", &pResult , "CDecl Int")) || ErrorLevel
+		if r := this.lib.loads(pJson, pResult)
 		{
-			throw Exception("Failed to parse JSON (" r "," ErrorLevel ")", -1
+			throw Error("Failed to parse JSON (" r ")", -1
 			, Format("Unexpected character at position {}: '{}'"
-			, (NumGet(pJson)-&_json)//2, Chr(NumGet(NumGet(pJson), "short"))))
+			, (NumGet(pJson, 'UPtr') - StrPtr(_json)) // 2, Chr(NumGet(NumGet(pJson, 'UPtr'), 'Short'))))
 		}
 
-		result := ComObject(0x400C, &pResult)[]
-		if (IsObject(result))
-			ObjRelease(&result)
+		result := ComValue(0x400C, pResult.Ptr)[] ; VT_BYREF | VT_VARIANT
+		if IsObject(result)
+			ObjRelease(ObjPtr(result))
 		return result
 	}
 
-	True[]
-	{
-		get
-		{
-			static _ := {"value": true, "name": "true"}
+	static True {
+		get {
+			static _ := {value: true, name: 'true'}
 			return _
 		}
 	}
 
-	False[]
-	{
-		get
-		{
-			static _ := {"value": false, "name": "false"}
+	static False {
+		get {
+			static _ := {value: false, name: 'false'}
 			return _
 		}
 	}
 
-	Null[]
-	{
-		get
-		{
-			static _ := {"value": "", "name": "null"}
+	static Null {
+		get {
+			static _ := {value: '', name: 'null'}
 			return _
 		}
 	}
