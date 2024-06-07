@@ -20,6 +20,8 @@ Tray := A_TrayMenu ; For convenience.
 Tray.Delete() ; Delete the standard items.
 Tray.Add("Pause/Unpause", PauseKomorebi)
 Tray.Add("Restart", StartKomorebiStar)
+; Tray.Add() ; separator
+; Tray.Add("Swap monitors", SwapScreensStar)
 Tray.Add() ; separator
 Tray.Add("Reload Tray", ReloadTrayStar)
 Tray.Add("Exit Tray", ExitTrayStar)
@@ -126,7 +128,7 @@ PauseKomorebi(*) {
   TogglePause()
 }
 
-SwapScreens() {
+SwapScreensStar(*) {
   ; Swap monitors on a 2 screen setup. ToDo: Add safeguard for 3+ monitors
   Komorebi("swap-workspaces-with-monitor " . 1 - Screen)
 }
